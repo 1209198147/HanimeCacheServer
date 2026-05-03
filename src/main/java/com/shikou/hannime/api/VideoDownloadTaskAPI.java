@@ -42,14 +42,12 @@ public class VideoDownloadTaskAPI {
             if (CollectionUtils.isEmpty(resolutions)){
                 VideoDownloadTask downloadTask = new VideoDownloadTask();
                 downloadTask.setVideoCode(videoCode);
-                downloadTask.setVideoUrl(task.getVideoUrl());
                 downloadTask.setResolution(videoStoreConfig.getResolution());
                 downloadTasks.add(downloadTask);
             }else{
                 for (String resolution : resolutions){
                     VideoDownloadTask downloadTask = new VideoDownloadTask();
                     downloadTask.setVideoCode(videoCode);
-                    downloadTask.setVideoUrl(task.getVideoUrl());
                     downloadTask.setResolution(resolution);
                     downloadTasks.add(downloadTask);
                 }

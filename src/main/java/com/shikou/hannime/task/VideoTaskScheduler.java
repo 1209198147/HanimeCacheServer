@@ -15,13 +15,11 @@ import com.shikou.model.HanimeVideo;
 import com.shikou.model.VideoQuality;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
-import kotlin.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -103,13 +101,12 @@ public class VideoTaskScheduler {
                 video.setVideoCode(videoCode);
                 video.setResolution(quality.getResolution());
                 video.setVideoUrl(quality.getUrl());
-                video.setResolution(resolution);
+                video.setResolution(quality.getResolution());
                 videos.add(video);
 
                 // 下载任务
                 VideoDownloadTask task = new VideoDownloadTask();
                 task.setVideoCode(videoCode);
-                task.setVideoUrl(quality.getUrl());
                 task.setResolution(quality.getResolution());
                 tasks.add(task);
             }catch (HanimeNetworkException e){
@@ -123,7 +120,7 @@ public class VideoTaskScheduler {
         videoDownloadTaskService.createTasks(tasks);
     }
 
-    @Scheduled(fixedDelay = 3600000)
+    @Scheduled(fixedDelay = 900000)
     private void downloadVideos(){
         List<VideoDownloadTask> notCompletedTask = videoDownloadTaskService.getNotCompletedTask(10);
         notCompletedTask.forEach(task -> {

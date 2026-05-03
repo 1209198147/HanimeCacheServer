@@ -105,7 +105,7 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
         AssertUtils.nonNull(task, ErrorCode.TASK_NOT_FOUND, "任务不存在");
 
         TaskStatus taskStatus = TaskStatus.valueOf(task.getStatus());
-        AssertUtils.isTrue(TaskStatus.PROCESSING.equals(taskStatus),
+        AssertUtils.isTrue(!TaskStatus.PROCESSING.equals(taskStatus),
                 "当前任务无法完成 id:" + id + " 状态:" + taskStatus.getMessage());
         task.setStatus(TaskStatus.COMPLETED.getCode());
         boolean result = this.updateById(task);

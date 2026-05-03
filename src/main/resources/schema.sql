@@ -21,7 +21,6 @@ CREATE INDEX IF NOT EXISTS idx_video_video_code ON video(video_code);
 CREATE TABLE IF NOT EXISTS video_download_task (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     video_code VARCHAR(16) NOT NULL,
-    video_url VARCHAR(256),
     status INTEGER DEFAULT 0,
     resolution VARCHAR(16),
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,

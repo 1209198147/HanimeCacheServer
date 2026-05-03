@@ -17,7 +17,6 @@ public class VideoDownloadTask {
     private Integer id;
 
     private String videoCode;
-    private String videoUrl;
     private Integer status;
     /** 分辨率标识，如 "1080P", "720P", "480P", "240P", "Unknown" */
     private String resolution;
