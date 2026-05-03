@@ -1,0 +1,71 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+.mvn/
+logs/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Project Specific ###
+# SQLite database file
+hannime.db
+
+# Log files and directories
+logs/
+
+# Video files - add pattern for video storage path
+# Note: The actual video storage path is external (C:/Users/Admin/Downloads/),
+# so this would be handled in the user's system gitignore, not project gitignore
+
+# Maven wrapper files (already included but ensure they're covered)
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE and build artifacts (already covered, but ensure completeness)
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.idea/
+.vscode/
+
+# Build output directories
+out/
+target/
+build/
+
+# Dependency directories
+node_modules/
+
+# System files
+.DS_Store
+Thumbs.db
