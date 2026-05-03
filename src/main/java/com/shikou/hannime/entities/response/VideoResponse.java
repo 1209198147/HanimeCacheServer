@@ -3,20 +3,26 @@ package com.shikou.hannime.entities.response;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.shikou.hannime.entities.domain.Video;
+import com.shikou.model.VideoQuality;
+import lombok.Builder;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class VideoResponse {
     /** 影片代码，如 "403047" */
     private String videoCode;
 
-    /** 影片观看URL，如果本地有缓存会返回本地缓存的URL */
-    private String videoUrl;
+    /** 多分辨率视频URL映射: 分辨率 -> VideoQuality */
+    private Map<String, HanimeLink> videoUrls;
 
     /** 标题 */
     private String title;
+
+    /** 标题 */
+    private String chineseTitle;
 
     /** 封面/缩略图URL */
     private String coverUrl;
@@ -42,8 +48,8 @@ public class VideoResponse {
     public static VideoResponse fromVideo(Video video){
         VideoResponse videoResponse = new VideoResponse();
         videoResponse.setVideoCode(video.getVideoCode());
-        videoResponse.setVideoUrl(video.getVideoUrl());
         videoResponse.setTitle(video.getTitle());
+        videoResponse.setChineseTitle(video.getTitle());
         videoResponse.setCoverUrl(video.getCoverUrl());
         videoResponse.setIntroduction(video.getIntroduction());
         videoResponse.setTags(video.getTagsAsList());
@@ -51,5 +57,22 @@ public class VideoResponse {
         videoResponse.setUploader(video.getUploader());
         videoResponse.setGenre(video.getGenre());
         return videoResponse;
+    }
+
+    @Data
+    @Builder
+    public static class HanimeLink {
+        /**
+         * 链接
+         */
+        private String link;
+        /**
+         * 子类型
+         */
+        private String subtype;
+        /**
+         * 后缀
+         */
+        private String suffix;
     }
 }

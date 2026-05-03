@@ -101,7 +101,6 @@ public class VideoTaskScheduler {
                 video.setVideoCode(videoCode);
                 video.setResolution(quality.getResolution());
                 video.setVideoUrl(quality.getUrl());
-                video.setResolution(quality.getResolution());
                 videos.add(video);
 
                 // 下载任务
