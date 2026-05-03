@@ -23,6 +23,6 @@ public class VideoDownloadTask {
     private String resolution;
 
     private LocalDateTime createTime;
-    @TableField(fill = FieldFill.INSERT_UPDATE)
+    @TableField(fill = FieldFill.UPDATE)
     private LocalDateTime updateTime;
 }

@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,6 +56,13 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
 
     public List<VideoDownloadTask> getNotCompletedTask(int count) {
         return this.query().in("status", NOT_COMPLETED_TASK_STATUS).last("LIMIT " + count).list();
+    }
+
+    public List<VideoDownloadTask> getRecoverTask() {
+        return this.lambdaQuery()
+                .eq(VideoDownloadTask::getStatus, TaskStatus.PROCESSING.getCode())
+                .le(VideoDownloadTask::getUpdateTime, Date.from(Instant.now().minusSeconds(2*60*60)))
+                .list();
     }
 
     public void processTask(VideoDownloadTask videoDownloadTask) {

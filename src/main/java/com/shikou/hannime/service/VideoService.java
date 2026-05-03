@@ -35,11 +35,13 @@ public class VideoService extends ServiceImpl<VideoMapper, Video> {
     /**
      * 根据视频代码和分辨率查询视频
      * @param videoCode 视频代码
-     * @param resolution 分辨率
      * @return Video对象
      */
-    public Video getVideoByCodeAndResolution(String videoCode, String resolution) {
-        return this.lambdaQuery().eq(Video::getVideoCode, videoCode).eq(Video::getResolution, resolution).one();
+    public List<Video> getVideoByCode(String videoCode) {
+        return this.lambdaQuery().eq(Video::getVideoCode, videoCode)
+                .select(Video::getVideoCode, Video::getResolution, Video::getPath)
+                .isNull(Video::getPath)
+                .list();
     }
 
     public boolean updateVideoPath(String videoCode, String path){

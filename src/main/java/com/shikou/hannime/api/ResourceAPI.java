@@ -6,13 +6,17 @@ import com.shikou.hannime.service.VideoService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.*;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RestController
 @RequestMapping("/resources")
 public class ResourceAPI {
@@ -38,10 +42,10 @@ public class ResourceAPI {
             HttpServletResponse response) throws IOException {
         
         // 根据videoCode和resolution查询视频信息
-        Video video = videoService.getVideoByCodeAndResolution(videoCode, resolution);
+        List<Video> videos = videoService.getVideoByCode(videoCode);
         
         String filePath;
-        if (video == null) {
+        if (videos == null) {
             // 如果数据库中没有找到，尝试根据默认路径构建文件路径
             String fileName = videoCode + "_" + resolution + ".mp4";
             filePath = Paths.get(videoStoreConfig.getVideoStorePath(), fileName).toString();
@@ -67,13 +71,14 @@ public class ResourceAPI {
             }
         } else {
             // 如果数据库中有记录，使用path字段的值
-            filePath = video.getPath();
-            if (!StringUtils.hasText(filePath)) {
+            Map<String, String> resolutionPathMap = videos.stream().collect(Collectors.toMap(Video::getResolution, Video::getPath));
+            String resolutionPath = resolutionPathMap.get(resolution);
+            if (!StringUtils.isBlank(resolutionPath)) {
                 // 如果path为空，构建默认路径
                 String fileName = videoCode + "_" + resolution + ".mp4";
                 filePath = Paths.get(videoStoreConfig.getVideoStorePath(), fileName).toString();
             }else{
-                filePath = Paths.get(videoStoreConfig.getVideoStorePath(), video.getPath()).toString();
+                filePath = Paths.get(videoStoreConfig.getVideoStorePath(), resolutionPath).toString();
             }
         }
         

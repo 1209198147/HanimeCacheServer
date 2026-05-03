@@ -45,6 +45,7 @@ public class VideoTaskScheduler {
     private void dobatchScanVideos(){
         batchScanVideos();
         downloadVideos();
+        recoverTask();
     }
 
     @Scheduled(cron = "0 0 0 1 * ?")
@@ -166,5 +167,15 @@ public class VideoTaskScheduler {
             videoDownloadTaskService.failTask(task);
             log.warn("下载视频 {} 失败", task.getVideoCode(), e);
         }
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    private void recoverTask() {
+        List<VideoDownloadTask> recoverTask = videoDownloadTaskService.getRecoverTask();
+        recoverTask.forEach(task -> {
+            executorService.submit(() -> {
+                downloadVideo(task);
+            });
+        });
     }
 }
