@@ -35,7 +35,7 @@ public class VideoService extends ServiceImpl<VideoMapper, Video> {
                         String path = video.getPath();
                         String suffix = getSuffix(path);
                         String subtype = getSubtype(suffix);
-                        String link = "/resource/getVideo?videoCode=" + video.getVideoCode() + "&resolution=" + video.getResolution();
+                        String link = "resources/" + video.getPath();
                         return VideoResponse.HanimeLink.builder()
                                 .link(link)
                                 .subtype(subtype)

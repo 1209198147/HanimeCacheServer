@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @CrossOrigin(origins = "*", allowedHeaders = "*")
 @RestController
-@RequestMapping("/resource")
-public class ResourceAPI {
+@RequestMapping("/cache")
+public class CacheAPI {
     
     @Resource
     private VideoService videoService;
