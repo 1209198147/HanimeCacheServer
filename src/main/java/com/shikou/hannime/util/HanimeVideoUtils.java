@@ -8,7 +8,20 @@ import java.util.List;
 import java.util.Map;
 
 public class HanimeVideoUtils {
+
     public static VideoQuality getResolutionUrl(HanimeVideo videoDetail, String resolution){
+        Map<String, VideoQuality> videoUrls = videoDetail.getVideoUrls();
+        return videoUrls.getOrDefault(resolution, null);
+    }
+
+    /**
+     * 根据请求的画质，匹配最接近的画质URL
+     * 匹配不到resolution时，返回更好一点的可用画质
+     * @param videoDetail
+     * @param resolution
+     * @return
+     */
+    public static VideoQuality matchResolutionUrl(HanimeVideo videoDetail, String resolution){
         Map<String, VideoQuality> videoUrls = videoDetail.getVideoUrls();
         // 先尝试精确匹配
         VideoQuality videoQuality = videoUrls.get(resolution);

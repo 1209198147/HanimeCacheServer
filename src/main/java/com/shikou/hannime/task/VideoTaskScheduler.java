@@ -87,7 +87,10 @@ public class VideoTaskScheduler {
                 HanimeVideo videoDetail = hanimeApiClient.getVideoDetail(videoCode);
                 AssertUtils.nonNull(videoDetail, "无法获取视频详情 videCode: " + videoCode);
                 VideoQuality quality = HanimeVideoUtils.getResolutionUrl(videoDetail, resolution);
-                AssertUtils.nonNull(quality, "无法获取视频画质 videCode: " + videoCode + " resolution: " + resolution);
+                if(quality == null){
+                    log.warn("未找到视频 [{}] {} 的 {} 画质，跳过", videoCode, videoDetail.getTitle(), resolution);
+                    continue;
+                }
                 AssertUtils.nonNull(quality.getUrl(), "无法获取视频画质 URL videCode: " + videoCode + " resolution: " + resolution);
                 AssertUtils.nonNull(quality.getResolution(), "无法获取视频画质 resolution videCode: " + videoCode + " resolution: " + resolution);
 
