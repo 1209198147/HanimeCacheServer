@@ -1,9 +1,6 @@
 package com.shikou.hannime.entities.response;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.shikou.hannime.entities.domain.Video;
-import com.shikou.model.VideoQuality;
 import lombok.Builder;
 import lombok.Data;
 

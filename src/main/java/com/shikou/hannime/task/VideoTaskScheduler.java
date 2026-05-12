@@ -11,11 +11,12 @@ import com.shikou.hannime.service.VideoService;
 import com.shikou.hannime.util.AssertUtils;
 import com.shikou.hannime.util.HanimeVideoUtils;
 import com.shikou.hannime.util.VideoConverter;
-import com.shikou.model.HanimeVideo;
-import com.shikou.model.VideoQuality;
+import com.shikou.model.entities.HanimeVideo;
+import com.shikou.model.entities.VideoQuality;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "cache.enable", havingValue = "true", matchIfMissing = true)
 public class VideoTaskScheduler {
     @Resource
     private VideoStoreConfig videoStoreConfig;
@@ -92,24 +94,24 @@ public class VideoTaskScheduler {
                     continue;
                 }
                 AssertUtils.nonNull(quality.getUrl(), "无法获取视频画质 URL videCode: " + videoCode + " resolution: " + resolution);
-                AssertUtils.nonNull(quality.getResolution(), "无法获取视频画质 resolution videCode: " + videoCode + " resolution: " + resolution);
+                AssertUtils.nonNull(quality.getQuality(), "无法获取视频画质 videCode: " + videoCode + " resolution: " + resolution);
 
-                if(filtered.contains(videoCode + "_" + quality.getResolution())) {
-                    log.info("视频 {} {} 已存在，跳过", videoCode, quality.getResolution());
+                if(filtered.contains(videoCode + "_" + quality.getQuality())) {
+                    log.info("视频 {} {} 已存在，跳过", videoCode, quality.getQuality());
                     continue;
                 }
 
                 // 视频
                 Video video = VideoConverter.convert(videoDetail);
                 video.setVideoCode(videoCode);
-                video.setResolution(quality.getResolution());
+                video.setResolution(quality.getQuality());
                 video.setVideoUrl(quality.getUrl());
                 videos.add(video);
 
                 // 下载任务
                 VideoDownloadTask task = new VideoDownloadTask();
                 task.setVideoCode(videoCode);
-                task.setResolution(quality.getResolution());
+                task.setResolution(quality.getQuality());
                 tasks.add(task);
             }catch (HanimeNetworkException e){
                 log.warn("网络异常无法获取视频详情 videCode: {}", i, e);

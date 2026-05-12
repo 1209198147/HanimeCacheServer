@@ -1,7 +1,8 @@
 package com.shikou.hannime.util;
 
-import com.shikou.model.HanimeVideo;
-import com.shikou.model.VideoQuality;
+
+import com.shikou.model.entities.HanimeVideo;
+import com.shikou.model.entities.VideoQuality;
 
 import java.util.Arrays;
 import java.util.List;

@@ -1,8 +1,8 @@
 package com.shikou.hannime.util;
 
 import com.shikou.hannime.entities.domain.Video;
-import com.shikou.model.Artist;
-import com.shikou.model.HanimeVideo;
+import com.shikou.model.entities.Artist;
+import com.shikou.model.entities.HanimeVideo;
 import org.springframework.util.CollectionUtils;
 
 import java.util.List;
