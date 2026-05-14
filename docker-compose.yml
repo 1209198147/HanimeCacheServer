@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  # ==================== Spring Boot 应用 ====================
+  hannime-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hannime-app:latest
+    container_name: hannime-app
+    restart: unless-stopped
+    environment:
+      # 视频存储路径（容器内路径，与 nginx 共享 volume）
+      - VIDEO_STORE_PATH=/video-store/
+      # 默认画质
+      - VIDEO_QUALITY=lowest
+      # SQLite 数据库路径（持久化到 volume）
+      - SPRING_DATASOURCE_URL=jdbc:sqlite:/app/data/hannime.db
+      # Java 内存限制
+      - JAVA_OPTS=-Xms256m -Xmx512m
+    volumes:
+      # 视频文件存储 — 挂载到宿主机目录
+      - ./video-store:/video-store
+      # SQLite 数据库持久化
+      - ./data:/app/data
+      # 日志持久化
+      - ./logs:/app/logs
+    networks:
+      - hannime-network
+
+  # ==================== Nginx 反向代理 + 静态资源服务 ====================
+  hannime-nginx:
+    image: nginx:1.27-alpine
+    container_name: hannime-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      # nginx 配置文件
+      - ./conf/nginx_docker.conf:/etc/nginx/nginx.conf:ro
+      # 视频文件（只读，由 app 容器写入）
+      - ./video-store:/video-store:ro
+    depends_on:
+      - hannime-app
+    networks:
+      - hannime-network
+
+networks:
+  hannime-network:
+    driver: bridge
