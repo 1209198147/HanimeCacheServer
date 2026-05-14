@@ -1,17 +1,21 @@
 package com.shikou.hannime.entities.request;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class CreateTaskRequest {
     private List<Task> tasks;
 
     @Data
-    public class Task{
+    public static class Task{
         private String videoCode;
-        private String videoUrl;
-        private List<String> resolutions;
+        private List<String> qualities;
     }
 }

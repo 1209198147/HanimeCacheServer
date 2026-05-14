@@ -48,11 +48,6 @@ public class ProxyService {
             log.error("获取首页网络异常: {}", e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
         }
-        if (homePage != null && !CollectionUtils.isEmpty(homePage.getSections())) {
-            for (HomePageSection section : homePage.getSections()) {
-                replaceVideoUrlsInVideoInfoList(section.getVideoInfoList());
-            }
-        }
         return homePage;
     }
 
@@ -72,9 +67,6 @@ public class ProxyService {
             log.error("获取搜索页网络异常: {}", e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
         }
-        if (searchPage != null) {
-            replaceVideoUrlsInVideoInfoList(searchPage.getVideos());
-        }
         return searchPage;
     }
 
@@ -91,9 +83,6 @@ public class ProxyService {
         } catch (HanimeNetworkException e) {
             log.error("搜索视频网络异常: {}", e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
-        }
-        if (result != null) {
-            replaceVideoUrlsInVideoInfoList(result.getVideos());
         }
         return result;
     }
@@ -116,11 +105,6 @@ public class ProxyService {
         }
         if (watchPage != null) {
             replaceVideoUrlsInWatchPage(watchPage, videoCode);
-
-            // 替换相关影片列表中的视频 URL
-            if (!CollectionUtils.isEmpty(watchPage.getRelatedHanimes())) {
-                replaceVideoUrlsInVideoInfoList(watchPage.getRelatedHanimes());
-            }
         }
         return watchPage;
     }
@@ -128,7 +112,7 @@ public class ProxyService {
     // ==================== 用户页 ====================
 
     /**
-     * 获取用户页（首页 Tab），替换 videoList 和 playlists 中的相关 URL
+     * 获取用户页（首页 Tab）
      */
     public UserPage getUserPage(String userId) {
         UserPage userPage;
@@ -140,10 +124,6 @@ public class ProxyService {
         } catch (HanimeNetworkException e) {
             log.error("获取用户页网络异常 userId={}: {}", userId, e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
-        }
-        if (userPage != null) {
-            replaceVideoUrlsInVideoInfoList(userPage.getVideoList());
-            // playlists 中的 listUrl 暂不替换（无本地缓存对应关系）
         }
         return userPage;
     }
@@ -161,9 +141,6 @@ public class ProxyService {
         } catch (HanimeNetworkException e) {
             log.error("获取用户视频列表网络异常 code={}: {}", params.getCode(), e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
-        }
-        if (result != null) {
-            replaceVideoUrlsInVideoInfoList(result.getVideos());
         }
         return result;
     }
@@ -186,7 +163,7 @@ public class ProxyService {
     // ==================== 播放列表页 ====================
 
     /**
-     * 获取播放列表详情，替换 videos 中的视频 URL
+     * 获取播放列表详情
      */
     public Playlist getPlaylist(CommonParam params) {
         Playlist playlist;
@@ -198,9 +175,6 @@ public class ProxyService {
         } catch (HanimeNetworkException e) {
             log.error("获取播放列表网络异常 code={}: {}", params.getCode(), e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
-        }
-        if (playlist != null) {
-            replaceVideoUrlsInVideoInfoList(playlist.getVideos());
         }
         return playlist;
     }
@@ -240,8 +214,8 @@ public class ProxyService {
     // ==================== URL 替换核心方法 ====================
 
     /**
-     * 替换 WatchPage 中的 videoUrls（实际视频文件 URL）
-     * 将上游 CDN 地址替换为本地 /cache/getVideo 地址
+     * 替换 WatchPage 中的 videoUrls（实际视频文件 URL）及 relatedHanimes 中的视频链接
+     * - 视频源 URL: 将上游 CDN 地址替换为本地 /resources/ 地址
      */
     private void replaceVideoUrlsInWatchPage(WatchPage watchPage, String videoCode) {
         Map<String, VideoQuality> videoUrls = watchPage.getVideoUrls();
@@ -254,84 +228,24 @@ public class ProxyService {
         Map<String, String> cachedPathMap = new HashMap<>();
         if (!CollectionUtils.isEmpty(cachedVideos)) {
             for (Video v : cachedVideos) {
-                if (v.getResolution() != null && v.getPath() != null) {
-                    cachedPathMap.put(v.getResolution().toLowerCase(), v.getPath());
+                if (v.getQuality() != null && v.getPath() != null) {
+                    cachedPathMap.put(v.getQuality().toUpperCase(), v.getPath());
                 }
             }
         }
 
-        // 替换每个分辨率的 URL
+        // 替换每个画质的 URL
         for (Map.Entry<String, VideoQuality> entry : videoUrls.entrySet()) {
-            String resolution = entry.getKey().toLowerCase();
-            VideoQuality quality = entry.getValue();
+            String quality = entry.getKey().toUpperCase();
+            VideoQuality videoQuality = entry.getValue();
 
-            if (cachedPathMap.containsKey(resolution)) {
+            if (cachedPathMap.containsKey(quality)) {
                 // 有本地缓存 → 替换为本地地址
-                String localUrl = String.format("/cache/getVideo?videoCode=%s&resolution=%s",
-                        videoCode, resolution);
-                quality.setUrl(localUrl);
+                String localUrl = "/resources/" + cachedPathMap.get(quality);
+                videoQuality.setUrl(localUrl);
                 log.debug("替换 WatchPage videoUrl: {} -> {}", videoCode, localUrl);
             }
             // 无缓存 → 保留上游原始 URL
         }
-    }
-
-    /**
-     * 批量替换 VideoInfo 列表中的 videoUrl
-     * 若本地有缓存，则将 videoUrl 替换为代理地址
-     */
-    private void replaceVideoUrlsInVideoInfoList(List<VideoInfo> videoInfoList) {
-        if (CollectionUtils.isEmpty(videoInfoList)) {
-            return;
-        }
-
-        // 批量查询已缓存的 videoCode 集合
-        Set<String> videoCodes = videoInfoList.stream()
-                .map(VideoInfo::getVideoCode)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        if (videoCodes.isEmpty()) {
-            return;
-        }
-
-        Set<String> cachedVideoCodes = getCachedVideoCodes(videoCodes);
-
-        if (cachedVideoCodes.isEmpty()) {
-            return;
-        }
-
-        // 替换已缓存视频的 videoUrl
-        for (VideoInfo videoInfo : videoInfoList) {
-            String code = videoInfo.getVideoCode();
-            if (code != null && cachedVideoCodes.contains(code)) {
-                String proxyUrl = "/api/proxy/watch?v=" + code;
-                videoInfo.setVideoUrl(proxyUrl);
-                log.debug("替换 VideoInfo videoUrl: {} -> {}", code, proxyUrl);
-            }
-        }
-    }
-
-    /**
-     * 批量查询已缓存的 videoCode 集合
-     */
-    private Set<String> getCachedVideoCodes(Set<String> videoCodes) {
-        if (CollectionUtils.isEmpty(videoCodes)) {
-            return Collections.emptySet();
-        }
-
-        List<Video> cachedVideos = videoService.lambdaQuery()
-                .in(Video::getVideoCode, videoCodes)
-                .isNotNull(Video::getPath)
-                .select(Video::getVideoCode)
-                .list();
-
-        if (CollectionUtils.isEmpty(cachedVideos)) {
-            return Collections.emptySet();
-        }
-
-        return cachedVideos.stream()
-                .map(Video::getVideoCode)
-                .collect(Collectors.toSet());
     }
 }

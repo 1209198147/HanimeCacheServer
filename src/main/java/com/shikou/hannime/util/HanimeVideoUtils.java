@@ -4,104 +4,133 @@ package com.shikou.hannime.util;
 import com.shikou.model.entities.HanimeVideo;
 import com.shikou.model.entities.VideoQuality;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.Comparator;
 import java.util.Map;
 
 public class HanimeVideoUtils {
 
-    public static VideoQuality getResolutionUrl(HanimeVideo videoDetail, String resolution){
+    public static VideoQuality getQualityUrl(HanimeVideo videoDetail, String quality){
         Map<String, VideoQuality> videoUrls = videoDetail.getVideoUrls();
-        return videoUrls.getOrDefault(resolution, null);
+        return videoUrls.getOrDefault(quality, null);
     }
 
     /**
-     * 根据请求的画质，匹配最接近的画质URL
-     * 匹配不到resolution时，返回更好一点的可用画质
-     * @param videoDetail
-     * @param resolution
-     * @return
+     * 根据质量配置解析视频画质，直接从视频自身的videoUrls中按分辨率数值选取
+     * @param videoDetail 视频详情
+     * @param qualityConfig 质量配置: "480p"=指定画质, "highest"=最高画质, "lowest"=最低画质
+     * @return 匹配的VideoQuality，未找到返回null
      */
-    public static VideoQuality matchResolutionUrl(HanimeVideo videoDetail, String resolution){
+    public static VideoQuality resolveQuality(HanimeVideo videoDetail, String qualityConfig) {
         Map<String, VideoQuality> videoUrls = videoDetail.getVideoUrls();
-        // 先尝试精确匹配
-        VideoQuality videoQuality = videoUrls.get(resolution);
-        if(videoQuality != null){
-            return videoQuality;
+        if (videoUrls.isEmpty()) {
+            return null;
         }
 
-        // 定义画质优先级（从高到低）
-        List<String> resolutionPriorities = Arrays.asList(
-                "1080p", "720p", "480p", "360p", "240p", "144p"
-        );
-
-        // 尝试更高画质（如果请求的是720p，尝试1080p）
-        int currentIndex = resolutionPriorities.indexOf(resolution.toLowerCase());
-        if(currentIndex != -1){
-            // 尝试更高画质
-            for(int i = currentIndex - 1; i >= 0; i--){
-                String higherRes = resolutionPriorities.get(i);
-                videoQuality = videoUrls.get(higherRes);
-                if(videoQuality != null){
-                    return videoQuality;
-                }
-            }
-            // 尝试更低画质
-            for(int i = currentIndex + 1; i < resolutionPriorities.size(); i++){
-                String lowerRes = resolutionPriorities.get(i);
-                videoQuality = videoUrls.get(lowerRes);
-                if(videoQuality != null){
-                    return videoQuality;
-                }
-            }
+        if ("highest".equalsIgnoreCase(qualityConfig)) {
+            return videoUrls.entrySet().stream()
+                    .max(Comparator.comparingInt(e -> extractResolution(e.getKey())))
+                    .map(Map.Entry::getValue)
+                    .orElse(null);
+        } else if ("lowest".equalsIgnoreCase(qualityConfig)) {
+            return videoUrls.entrySet().stream()
+                    .min(Comparator.comparingInt(e -> extractResolution(e.getKey())))
+                    .map(Map.Entry::getValue)
+                    .orElse(null);
+        } else {
+            return videoUrls.get(qualityConfig.toUpperCase());
         }
-
-        // 如果没有找到任何画质，返回第一个可用的画质
-        if(!videoUrls.isEmpty()){
-            return videoUrls.values().iterator().next();
-        }
-
-        return null;
     }
 
-    public static String getResolutionPath(Map<String, String> videoPaths, String resolution){
-        // 先尝试精确匹配
-        String videoPath = videoPaths.get(resolution);
-        if(videoPath != null){
-            return videoPath;
+    /**
+     * 从画质字符串中提取分辨率数值，如 "1080p" → 1080, "720p" → 720
+     */
+    private static int extractResolution(String quality) {
+        String num = quality.replaceAll("[^0-9]", "");
+        try {
+            return Integer.parseInt(num);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * 根据请求的画质，从视频自身可用的videoUrls中匹配最接近的画质
+     * <p>匹配不到时优先返回更高画质，其次更低画质
+     */
+    public static VideoQuality matchQualityUrl(HanimeVideo videoDetail, String quality){
+        Map<String, VideoQuality> videoUrls = videoDetail.getVideoUrls();
+        if (videoUrls.isEmpty()) {
+            return null;
         }
 
-        // 定义画质优先级（从高到低）
-        List<String> resolutionPriorities = Arrays.asList(
-                "1080p", "720p", "480p", "360p", "240p", "144p"
-        );
-
-        // 尝试更高画质（如果请求的是720p，尝试1080p）
-        int currentIndex = resolutionPriorities.indexOf(resolution.toLowerCase());
-        if(currentIndex != -1){
-            // 尝试更高画质
-            for(int i = currentIndex - 1; i >= 0; i--){
-                String higherRes = resolutionPriorities.get(i);
-                String higherResPath = videoPaths.get(higherRes);
-                if(higherResPath != null){
-                    return higherResPath;
-                }
-            }
-            // 尝试更低画质
-            for(int i = currentIndex + 1; i < resolutionPriorities.size(); i++){
-                String lowerRes = resolutionPriorities.get(i);
-                String lowerResPath = videoPaths.get(lowerRes);
-                if(lowerResPath != null){
-                    return lowerResPath;
-                }
+        // 1. 先尝试精确匹配（大小写不敏感，videoUrls的key中P为大写）
+        for (Map.Entry<String, VideoQuality> e : videoUrls.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(quality)) {
+                return e.getValue();
             }
         }
 
-        // 如果没有找到任何画质，返回第一个可用的画质
-        if(!videoPaths.isEmpty()){
-            return videoPaths.values().iterator().next();
+        // 2. 从实际可用的画质中找最接近的
+        int targetRes = extractResolution(quality);
+        var sorted = videoUrls.entrySet().stream()
+                .sorted(Comparator.comparingInt(e -> extractResolution(e.getKey())))
+                .toList();
+
+        // 优先返回更高的画质
+        for (var entry : sorted) {
+            if (extractResolution(entry.getKey()) > targetRes) {
+                return entry.getValue();
+            }
         }
 
-        return null;
+        // 其次返回更低的画质
+        for (int i = sorted.size() - 1; i >= 0; i--) {
+            if (extractResolution(sorted.get(i).getKey()) < targetRes) {
+                return sorted.get(i).getValue();
+            }
+        }
+
+        // 兜底：返回第一个可用画质
+        return videoUrls.values().iterator().next();
+    }
+
+    /**
+     * 从视频路径映射中按画质匹配最接近的路径
+     * <p>匹配不到时优先返回更高画质，其次更低画质
+     */
+    public static String getQualityPath(Map<String, String> videoPaths, String quality){
+        if (videoPaths.isEmpty()) {
+            return null;
+        }
+
+        // 1. 先尝试精确匹配（大小写不敏感）
+        for (Map.Entry<String, String> e : videoPaths.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(quality)) {
+                return e.getValue();
+            }
+        }
+
+        // 2. 从实际可用的画质中找最接近的
+        int targetRes = extractResolution(quality);
+        var sorted = videoPaths.entrySet().stream()
+                .sorted(Comparator.comparingInt(e -> extractResolution(e.getKey())))
+                .toList();
+
+        // 优先返回更高的画质
+        for (var entry : sorted) {
+            if (extractResolution(entry.getKey()) > targetRes) {
+                return entry.getValue();
+            }
+        }
+
+        // 其次返回更低的画质
+        for (int i = sorted.size() - 1; i >= 0; i--) {
+            if (extractResolution(sorted.get(i).getKey()) < targetRes) {
+                return sorted.get(i).getValue();
+            }
+        }
+
+        // 兜底：返回第一个可用画质
+        return videoPaths.values().iterator().next();
     }
 }

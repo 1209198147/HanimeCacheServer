@@ -2,7 +2,9 @@ package com.shikou.hannime.api;
 
 import com.shikou.hannime.config.VideoStoreConfig;
 import com.shikou.hannime.entities.domain.Video;
+import com.shikou.hannime.entities.response.Result;
 import com.shikou.hannime.service.VideoService;
+import com.shikou.hannime.util.AssertUtils;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,17 +35,23 @@ public class CacheAPI {
     @Resource
     private VideoStoreConfig videoStoreConfig;
 
+    @GetMapping("video-info/{videoCode}")
+    public Result getVideo(@PathVariable String videoCode) {
+        AssertUtils.isNotEmpty(videoCode, "视频码不能为空");
+        return Result.success(videoService.getVideo(videoCode));
+    }
+
     /**
      * 获取视频文件（支持Range请求，用于断点续传）
      * @param videoCode 视频代码
-     * @param resolution 分辨率，如 "360p", "720p", "1080p"
+     * @param quality 画质，如 "360p", "720p", "1080p"
      * @param request HTTP请求对象，用于处理Range头
      * @param response HTTP响应对象，用于设置响应头
      */
     @GetMapping("/getVideo")
     public void getVideo(
             @RequestParam String videoCode,
-            @RequestParam(defaultValue = "360P") String resolution,
+            @RequestParam(defaultValue = "480P") String quality,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
 
@@ -52,16 +60,16 @@ public class CacheAPI {
             response.sendError(HttpStatus.BAD_REQUEST.value(), "Invalid videoCode");
             return;
         }
-        resolution = resolution.toUpperCase().trim();
-        if (!resolution.matches("^(?i)(240p|360p|480p|720p|1080p)$")) {
-            response.sendError(HttpStatus.BAD_REQUEST.value(), "Invalid resolution");
+        quality = quality.toUpperCase().trim();
+        if (!quality.matches("^(?i)(240p|360p|480p|720p|1080p)$")) {
+            response.sendError(HttpStatus.BAD_REQUEST.value(), "Invalid quality");
             return;
         }
 
-        log.debug("Streaming video: {}, resolution: {}", videoCode, resolution);
+        log.debug("Streaming video: {}, quality: {}", videoCode, quality);
 
         // 2. 定位视频文件
-        Path videoPath = resolveVideoPath(videoCode, resolution);
+        Path videoPath = resolveVideoPath(videoCode, quality);
         if (videoPath == null || !Files.exists(videoPath)) {
             response.sendError(HttpStatus.NOT_FOUND.value());
             return;
@@ -113,19 +121,19 @@ public class CacheAPI {
     /**
      * 解析视频文件路径
      */
-    private Path resolveVideoPath(String videoCode, String resolution) {
+    private Path resolveVideoPath(String videoCode, String quality) {
         List<Video> videos = videoService.getVideoByCode(videoCode);
         Path basePath = Paths.get(videoStoreConfig.getVideoStorePath());
 
         if (CollectionUtils.isEmpty(videos)) {
             // 尝试默认命名规则
-            String fileName = videoCode + "_" + resolution + ".mp4";
+            String fileName = videoCode + "_" + quality + ".mp4";
             Path candidate = basePath.resolve(fileName);
             if (Files.exists(candidate)) return candidate;
 
             // 尝试其他扩展名
             for (String ext : Arrays.asList(".mp4", ".avi", ".mkv", ".mov", ".wmv")) {
-                Path alt = basePath.resolve(videoCode + "_" + resolution + ext);
+                Path alt = basePath.resolve(videoCode + "_" + quality + ext);
                 if (Files.exists(alt)) return alt;
             }
             return null;
@@ -133,14 +141,14 @@ public class CacheAPI {
 
         // 数据库中优先
         Map<String, String> pathMap = videos.stream()
-                .collect(Collectors.toMap(Video::getResolution, Video::getPath, (a, b) -> a));
-        String relativePath = pathMap.get(resolution);
+                .collect(Collectors.toMap(Video::getQuality, Video::getPath, (a, b) -> a));
+        String relativePath = pathMap.get(quality);
         if (StringUtils.isNotBlank(relativePath)) {
             return basePath.resolve(relativePath);
         }
 
         // 备用默认路径
-        return basePath.resolve(videoCode).resolve(videoCode + "_" + resolution + ".mp4");
+        return basePath.resolve(videoCode).resolve(videoCode + "_" + quality + ".mp4");
     }
 
     /**

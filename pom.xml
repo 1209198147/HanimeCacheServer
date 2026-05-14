@@ -82,7 +82,7 @@
         <dependency>
             <groupId>com.shikou</groupId>
             <artifactId>HanimeClient</artifactId>
-            <version>2.0-SNAPSHOT</version>
+            <version>2.6-SNAPSHOT</version>
         </dependency>
 
         <dependency>

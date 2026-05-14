@@ -18,8 +18,8 @@ public class VideoDownloadTask {
 
     private String videoCode;
     private Integer status;
-    /** 分辨率标识，如 "1080P", "720P", "480P", "240P", "Unknown" */
-    private String resolution;
+    /** 画质标识，如 "1080P", "720P", "480P", "240P", "Unknown" */
+    private String quality;
 
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.UPDATE)

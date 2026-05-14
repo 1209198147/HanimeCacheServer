@@ -1,13 +1,18 @@
 package com.shikou.hannime.api;
 
 import com.shikou.hannime.entities.response.Result;
+import com.shikou.hannime.exception.BizException;
+import com.shikou.hannime.exception.ErrorCode;
 import com.shikou.hannime.service.ProxyService;
 import com.shikou.model.entities.CommonParam;
 import com.shikou.model.entities.SearchParams;
+import com.shikou.model.entities.pages.HomePage;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.List;
 
 /**
@@ -26,17 +31,35 @@ public class ProxyAPI {
     // ==================== 首页 ====================
 
     /**
-     * GET /api/proxy/home — 首页
+     * GET /proxy/home — 首页
      */
     @GetMapping("/home")
     public Result home() {
-        return Result.success(proxyService.getHomePage());
+        HomePage homePage = proxyService.getHomePage();
+        if(homePage!=null){
+            homePage.getSections().forEach(section -> {
+                String moreLink = section.getMoreLink();
+                if (StringUtils.isNotBlank(moreLink)) {
+                    try {
+                        URI uri = new URI(moreLink);
+                        String relative = uri.getRawPath();
+                        if (uri.getRawQuery() != null) {
+                            relative += "?" + uri.getRawQuery();
+                        }
+                        section.setMoreLink(relative);
+                    } catch (Exception ignored) {
+                        log.warn("无法解析 moreLink: {}", moreLink);
+                    }
+                }
+            });
+        }
+        return Result.success(homePage);
     }
 
     // ==================== 搜索页 ====================
 
     /**
-     * GET /api/proxy/search — 搜索页（首次，含筛选条件）
+     * GET /proxy/search — 搜索页（首次，含筛选条件）
      */
     @GetMapping("/search")
     public Result search(
@@ -62,7 +85,7 @@ public class ProxyAPI {
     }
 
     /**
-     * GET /api/proxy/search/videos — 搜索视频（翻页/后续搜索，仅视频列表）
+     * GET /proxy/search/videos — 搜索视频（翻页/后续搜索，仅视频列表）
      */
     @GetMapping("/search/videos")
     public Result searchVideos(
@@ -90,17 +113,20 @@ public class ProxyAPI {
     // ==================== 观看页 ====================
 
     /**
-     * GET /api/proxy/watch?v={code} — 观看页
+     * GET /proxy/watch?v={code} — 观看页
      */
     @GetMapping("/watch")
     public Result watch(@RequestParam("v") String v) {
-        return Result.success(proxyService.getWatchPage(v));
+        if (StringUtils.isBlank(v) || "null".equalsIgnoreCase(v.trim())) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "参数 v 不能为空或非法值");
+        }
+        return Result.success(proxyService.getWatchPage(v.trim()));
     }
 
     // ==================== 用户页 ====================
 
     /**
-     * GET /api/proxy/user/{userId} — 用户页（首页 Tab）
+     * GET /proxy/user/{userId} — 用户页（首页 Tab）
      */
     @GetMapping("/user/{userId}")
     public Result user(@PathVariable String userId) {
@@ -108,7 +134,7 @@ public class ProxyAPI {
     }
 
     /**
-     * GET /api/proxy/user/{userId}/videos — 用户页（视频 Tab）
+     * GET /proxy/user/{userId}/videos — 用户页（视频 Tab）
      */
     @GetMapping("/user/{userId}/videos")
     public Result userVideos(
@@ -126,7 +152,7 @@ public class ProxyAPI {
     }
 
     /**
-     * GET /api/proxy/user/{userId}/playlists — 用户页（播放清单 Tab）
+     * GET /proxy/user/{userId}/playlists — 用户页（播放清单 Tab）
      */
     @GetMapping("/user/{userId}/playlists")
     public Result userPlaylists(
@@ -146,7 +172,7 @@ public class ProxyAPI {
     // ==================== 播放列表页 ====================
 
     /**
-     * GET /api/proxy/playlist?list={code}&page={n} — 播放列表详情页
+     * GET /proxy/playlist?list={code}&page={n} — 播放列表详情页
      */
     @GetMapping("/playlist")
     public Result playlist(
@@ -166,7 +192,7 @@ public class ProxyAPI {
     // ==================== 评论 ====================
 
     /**
-     * GET /api/proxy/comment?type=video&id={code} — 评论列表
+     * GET /proxy/comment?type=video&id={code} — 评论列表
      */
     @GetMapping("/comment")
     public Result comments(
@@ -177,7 +203,7 @@ public class ProxyAPI {
     }
 
     /**
-     * GET /api/proxy/comment/replies?id={id} — 评论回复
+     * GET /proxy/comment/replies?id={id} — 评论回复
      */
     @GetMapping("/comment/replies")
     public Result replies(@RequestParam String id) {

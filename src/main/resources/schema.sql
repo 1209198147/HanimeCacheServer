@@ -2,15 +2,7 @@
 CREATE TABLE IF NOT EXISTS video (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     video_code VARCHAR(16) NOT NULL,
-    video_url VARCHAR(256) NOT NULL,
-    title VARCHAR(256),
-    cover_url VARCHAR(1024),
-    introduction VARCHAR(1024),
-    tags VARCHAR(1024),
-    upload_time VARCHAR(16),
-    uploader VARCHAR(16),
-    genre VARCHAR(8),
-    resolution VARCHAR(16),
+    quality VARCHAR(16),
     path VARCHAR(1024)
 );
 
@@ -22,7 +14,7 @@ CREATE TABLE IF NOT EXISTS video_download_task (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     video_code VARCHAR(16) NOT NULL,
     status INTEGER DEFAULT 0,
-    resolution VARCHAR(16),
+    quality VARCHAR(16),
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );

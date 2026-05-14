@@ -1,5 +1,7 @@
 package com.shikou.hannime.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.shikou.hannime.dao.VideoDownloadTaskMapper;
 import com.shikou.hannime.entities.domain.VideoDownloadTask;
@@ -11,10 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -42,10 +41,10 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
         List<VideoDownloadTask> existTasks = this.lambdaQuery().in(VideoDownloadTask::getVideoCode, videoCodeList).in(VideoDownloadTask::getStatus, NOT_COMPLETED_TASK_STATUS).list();
 
         Set<String> existTasksSet = existTasks.stream()
-                .map(task -> task.getVideoCode() + "_" + task.getResolution())
+                .map(task -> task.getVideoCode() + "_" + task.getQuality())
                 .collect(Collectors.toSet());
         List<VideoDownloadTask> needCreate = tasks.stream()
-                .filter(task -> !existTasksSet.contains(task.getVideoCode()))
+                .filter(task -> !existTasksSet.contains(task.getVideoCode() + "_" + task.getQuality()))
                 .map(task -> {
                     task.setStatus(TaskStatus.PENDING.getCode());
                     return task;
@@ -163,5 +162,54 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
             log.error("任务无法取消 id:{} videoCode:{}", id, videoCode);
         }
         log.info("任务取消 id:{} videoCode:{}", id, videoCode);
+    }
+
+    /**
+     * 分页查询任务列表，支持按状态和视频码过滤
+     */
+    public Page<VideoDownloadTask> listTasks(String videoCode, Integer status, int page, int size) {
+        Page<VideoDownloadTask> pageParam = new Page<>(page, size);
+        LambdaQueryWrapper<VideoDownloadTask> wrapper = new LambdaQueryWrapper<>();
+        if (videoCode != null && !videoCode.isBlank()) {
+            wrapper.eq(VideoDownloadTask::getVideoCode, videoCode);
+        }
+        if (status != null) {
+            wrapper.eq(VideoDownloadTask::getStatus, status);
+        }
+        wrapper.orderByDesc(VideoDownloadTask::getCreateTime);
+        return this.page(pageParam, wrapper);
+    }
+
+    /**
+     * 获取任务统计信息（各状态数量）
+     */
+    public Map<String, Long> getStats() {
+        List<VideoDownloadTask> all = this.list();
+        long total = all.size();
+        Map<Integer, Long> statusCount = all.stream()
+                .collect(Collectors.groupingBy(VideoDownloadTask::getStatus, Collectors.counting()));
+        Map<String, Long> stats = new LinkedHashMap<>();
+        stats.put("total", total);
+        for (TaskStatus ts : TaskStatus.values()) {
+            stats.put(ts.getMessage().toLowerCase(), statusCount.getOrDefault(ts.getCode(), 0L));
+        }
+        return stats;
+    }
+
+    /**
+     * 重试失败的任务，将状态重置为 PENDING
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void retryTask(Integer taskId) {
+        AssertUtils.nonNull(taskId, "任务ID不能为空");
+        VideoDownloadTask task = this.getById(taskId);
+        AssertUtils.nonNull(task, ErrorCode.TASK_NOT_FOUND, "任务不存在 id:" + taskId);
+
+        TaskStatus taskStatus = TaskStatus.valueOf(task.getStatus());
+        AssertUtils.isTrue(!TaskStatus.FAILED.equals(taskStatus),
+                "当前任务无法重试 id:" + taskId + " 状态:" + taskStatus.getMessage());
+        task.setStatus(TaskStatus.PENDING.getCode());
+        this.updateById(task);
+        log.info("任务重试 id:{} videoCode:{}", taskId, task.getVideoCode());
     }
 }

@@ -31,7 +31,7 @@ public class VideoService extends ServiceImpl<VideoMapper, Video> {
         if(!CollectionUtils.isEmpty(videos)){
             VideoResponse videoResponse = VideoResponse.fromVideo(videos.get(0));
             Map<String, VideoResponse.HanimeLink> videoUrls = videos.stream()
-                    .collect(Collectors.toMap(Video::getResolution, video -> {
+                    .collect(Collectors.toMap(Video::getQuality, video -> {
                         String path = video.getPath();
                         String suffix = getSuffix(path);
                         String subtype = getSubtype(suffix);
@@ -82,7 +82,7 @@ public class VideoService extends ServiceImpl<VideoMapper, Video> {
      */
     public List<Video> getVideoByCode(String videoCode) {
         return this.lambdaQuery().eq(Video::getVideoCode, videoCode)
-                .select(Video::getVideoCode, Video::getResolution, Video::getPath)
+                .select(Video::getVideoCode, Video::getQuality, Video::getPath)
                 .isNotNull(Video::getPath)
                 .list();
     }
@@ -96,16 +96,16 @@ public class VideoService extends ServiceImpl<VideoMapper, Video> {
     @Transactional(rollbackFor = Exception.class)
     public void saveVideos(List<Video> videos){
         Set<String> videoCodes = videos.stream().map(Video::getVideoCode).collect(Collectors.toSet());
-        Map<String, Integer> map = this.lambdaQuery().in(Video::getVideoCode, videoCodes).select(Video::getVideoCode, Video::getResolution)
+        Map<String, Integer> existVideoMap = this.lambdaQuery().in(Video::getVideoCode, videoCodes).select(Video::getId, Video::getVideoCode, Video::getQuality)
                 .list().stream()
-                .collect(Collectors.toMap(video -> video.getVideoCode() + "_" + video.getResolution(), video -> video.getId()));
+                .collect(Collectors.toMap(video -> video.getVideoCode() + "_" + video.getQuality(), Video::getId));
 
         List<Video> needUpdate = new ArrayList<>();
         List<Video> needInsert = new ArrayList<>();
 
         for (Video video : videos) {
-            String key = video.getVideoCode() + "_" + video.getResolution();
-            Integer id = map.getOrDefault(key, null);
+            String key = video.getVideoCode() + "_" + video.getQuality();
+            Integer id = existVideoMap.get(key);
 
             if(id == null){
                 needInsert.add(video);
