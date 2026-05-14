@@ -1,5 +1,6 @@
 # ==================== 构建阶段 ====================
-FROM maven:3.9-eclipse-temurin-17-alpine AS build
+# swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/maven:3.9-eclipse-temurin-21-alpine
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/maven:3.9-eclipse-temurin-21-alpine AS build
 
 WORKDIR /build
 
@@ -7,11 +8,23 @@ WORKDIR /build
 COPY pom.xml .
 COPY src ./src
 
+# 复制HanimeClient依赖 jar（注意文件名与路径）
+COPY HanimeClient-2.6-SNAPSHOT.jar /tmp/
+
+# 手动安装到容器内的 Maven 本地仓库
+RUN mvn install:install-file \
+    -Dfile=/tmp/HanimeClient-2.6-SNAPSHOT.jar \
+    -DgroupId=com.shikou \
+    -DartifactId=HanimeClient \
+    -Dversion=2.6-SNAPSHOT \
+    -Dpackaging=jar
+
 # 构建项目（跳过测试）
 RUN mvn clean package -DskipTests -q
 
 # ==================== 运行阶段 ====================
-FROM eclipse-temurin:17-jre-alpine
+# swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/eclipse-temurin:21-jre-alpine
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
@@ -25,4 +38,4 @@ COPY --from=build /build/target/*.jar /app/app.jar
 EXPOSE 8080
 
 # 启动应用（支持 JAVA_OPTS 环境变量）
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dspring.profiles.active=docker -jar /app/app.jar"]
