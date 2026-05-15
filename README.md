@@ -20,8 +20,9 @@
 **核心职责：**
 
 1. **API 代理转发** — 接收前端请求，从上游获取数据，对视频 URL 做本地缓存替换后返回
-2. **视频文件缓存** — 将上游视频下载到本地，提供支持 Range 断点续传的本地文件访问
-3. **下载任务管理** — 管理视频下载任务的生命周期（创建、调度、状态追踪）
+2. **页面数据缓存** — 使用 Caffeine 内存缓存首页/观看页/用户页数据，减少上游请求，支持定时预热
+3. **视频文件缓存** — 将上游视频下载到本地，提供支持 Range 断点续传的本地文件访问
+4. **下载任务管理** — 管理视频下载任务的生命周期（创建、调度、状态追踪）
 
 ## 技术栈
 
@@ -33,6 +34,7 @@
 | SQLite | 3.45.1.0     | 嵌入式数据库 |
 | HanimeClient | 2.6-SNAPSHOT | 上游 API Java SDK |
 | Nginx | 1.30         | 反向代理 + 视频静态文件服务 |
+| Caffeine | 3.1.2        | 本地内存缓存 |
 | Docker | —            | 容器化部署 |
 
 ## 项目结构
@@ -58,11 +60,15 @@ src/main/java/com/shikou/hannime/
 │   ├── response/                 #   Result, VideoResponse
 │   └── enums/                    #   TaskStatus
 ├── config/                       # 配置类
+│   ├── CacheConfig.java          #   Caffeine 缓存配置
 │   ├── HannimeClientConfig.java
 │   ├── MybatisPlusConfig.java
 │   ├── SQLiteConfig.java
 │   └── VideoStoreConfig.java
+├── manager/
+│   └── CacheManager.java         # 缓存管理器（首页/观看页/用户页）
 ├── task/
+│   ├── CacheTaskScheduler.java   # 定时缓存预热
 │   └── VideoTaskScheduler.java   # 定时扫描 + 下载调度
 ├── util/
 │   ├── AssertUtils.java
@@ -80,11 +86,11 @@ src/main/java/com/shikou/hannime/
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/api/proxy/home` | GET | 首页（轮播 + 分区视频列表） |
+| `/api/proxy/home` | GET | 首页（轮播 + 分区视频列表，*缓存命中*） |
 | `/api/proxy/search` | GET | 搜索页（首次，含筛选条件） |
 | `/api/proxy/search/videos` | GET | 搜索结果（翻页） |
-| `/api/proxy/watch?v={code}` | GET | 观看页（视频详情 + 评论 + 相关影片） |
-| `/api/proxy/user/{userId}` | GET | 用户页（首页 Tab） |
+| `/api/proxy/watch?v={code}` | GET | 观看页（视频详情 + 评论 + 相关影片，*缓存命中*） |
+| `/api/proxy/user/{userId}` | GET | 用户页（首页 Tab，*缓存命中*） |
 | `/api/proxy/user/{userId}/videos` | GET | 用户页（视频 Tab，分页） |
 | `/api/proxy/user/{userId}/playlists` | GET | 用户页（播放清单 Tab，分页） |
 | `/api/proxy/playlist` | GET | 播放列表页（分页） |
@@ -192,6 +198,16 @@ docker-compose down
 http://localhost
 ```
 
+Docker 缓存相关环境变量：
+
+| 环境变量 | 默认值 | 说明 |
+|---------|-------|------|
+| `CACHE_ENABLE` | `true` | 是否启用页面缓存 |
+| `CACHE_DURATION` | `1` | 缓存有效期 |
+| `CACHE_UNIT` | `MINUTES` | 缓存时间单位 |
+| `CACHE_MAX_SIZE` | `1000` | 缓存最大条目数 |
+| `CACHE_TASK_ENABLE` | `true` | 是否启用定时缓存预热 |
+
 Docker 数据持久化映射：
 
 | 宿主机目录 | 容器目录 | 用途 |
@@ -214,6 +230,13 @@ video.quality=lowest
 # Hanime API 区域与语言
 hannime.zone=HK
 hannime.lang=zhs
+
+# 页面数据缓存（Caffeine）
+cache.enabled=true            # 是否启用缓存
+cache.duration=1              # 缓存有效期
+cache.unit=MINUTES            # 缓存时间单位（SECONDS/MINUTES/HOURS）
+cache.maxSize=1000            # 缓存最大条目数
+cache.task.enable=true        # 是否启用定时缓存预热任务
 
 # SQLite 数据库（Docker 中由 SPRING_DATASOURCE_URL 覆盖）
 spring.datasource.url=jdbc:sqlite:hannime.db
@@ -261,3 +284,10 @@ PENDING ──→ PROCESSING ──→ COMPLETED
    
 CANCELLED（API 拒绝，不再重试）
 ```
+
+## 预览
+
+> ![readme0](readme01.jpg) 
+> ![readme1](readme02.jpg)
+> ![readme2](readme03.jpg) 
+> ![readme3](readme04.jpg)
