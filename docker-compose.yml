@@ -14,8 +14,18 @@ services:
       - HANNIME_ZONE=HK
       # 语言（zhs=简体中文，zht=繁体中文）
       - HANNIME_LANG=zhs
-      # 是否开启缓存任务
-      - CACHE_ENABLE=false
+      # 是否开启视频任务
+      - VIDEO_TASK_ENABLE=false
+      # 是否开启页面缓存
+      - CACHE_ENABLE=true
+      # 缓存有效期
+      - CACHE_DURATION=1
+      # 缓存时间单位
+      - CACHE_UNIT=MINUTES
+      # 缓存最大数量
+      - CACHE_MAX_SIZE=1000
+      # 缓存任务
+      - CACHE_TASK_ENABLE=true
       # 视频存储路径（容器内路径，与 nginx 共享 volume）
       - VIDEO_STORE_PATH=/video-store/
       # 默认画质

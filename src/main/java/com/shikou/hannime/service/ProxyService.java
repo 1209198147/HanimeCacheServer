@@ -6,6 +6,7 @@ import com.shikou.exception.HanimeNetworkException;
 import com.shikou.hannime.entities.domain.Video;
 import com.shikou.hannime.exception.BizException;
 import com.shikou.hannime.exception.ErrorCode;
+import com.shikou.hannime.manager.CacheManager;
 import com.shikou.model.entities.*;
 import com.shikou.model.entities.pages.*;
 import com.shikou.model.entities.results.PlaylistsResult;
@@ -32,13 +33,20 @@ public class ProxyService {
     @Resource
     private VideoService videoService;
 
+    @Resource
+    private CacheManager cacheManager;
+
     // ==================== 首页 ====================
 
     /**
-     * 获取首页数据，替换 sections 中各 videoInfoList 的视频 URL
+     * 获取首页数据（优先走缓存，未命中则请求上游并缓存结果）
      */
     public HomePage getHomePage() {
-        HomePage homePage;
+        // 优先读缓存
+        HomePage homePage = cacheManager.getHome();
+        if (homePage != null) {
+            return homePage;
+        }
         try {
             homePage = hanimeApiClient.getHomePage();
         } catch (HanimeApiException e) {
@@ -48,6 +56,9 @@ public class ProxyService {
             log.error("获取首页网络异常: {}", e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
         }
+
+        // 写入缓存
+        cacheManager.putHome(homePage);
         return homePage;
     }
 
@@ -90,10 +101,14 @@ public class ProxyService {
     // ==================== 观看页 ====================
 
     /**
-     * 获取观看页，替换 videoUrls 和 relatedHanimes 中的视频 URL
+     * 获取观看页（优先走缓存，未命中则请求上游、替换 URL 并缓存结果）
      */
     public WatchPage getWatchPage(String videoCode) {
-        WatchPage watchPage;
+
+        WatchPage watchPage = cacheManager.getWatch(videoCode);
+        if (watchPage != null) {
+            return watchPage;
+        }
         try {
             watchPage = hanimeApiClient.getWatchPage(videoCode);
         } catch (HanimeApiException e) {
@@ -105,6 +120,8 @@ public class ProxyService {
         }
         if (watchPage != null) {
             replaceVideoUrlsInWatchPage(watchPage, videoCode);
+            // 写入缓存（URL 已替换）
+            cacheManager.putWatch(videoCode, watchPage);
         }
         return watchPage;
     }
@@ -115,7 +132,10 @@ public class ProxyService {
      * 获取用户页（首页 Tab）
      */
     public UserPage getUserPage(String userId) {
-        UserPage userPage;
+        UserPage userPage = cacheManager.getUser(userId); // 优先读缓存
+        if (userPage != null) {
+            return userPage;
+        }
         try {
             userPage = hanimeApiClient.getUserPage(userId);
         } catch (HanimeApiException e) {
@@ -125,6 +145,7 @@ public class ProxyService {
             log.error("获取用户页网络异常 userId={}: {}", userId, e.getMessage());
             throw new BizException(ErrorCode.FAIL, "网络异常，请稍后重试");
         }
+        cacheManager.putUser(userId, userPage); // 写入缓存
         return userPage;
     }
 

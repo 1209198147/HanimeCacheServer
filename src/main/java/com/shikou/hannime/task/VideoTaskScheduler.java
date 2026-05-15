@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "cache.enable", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "video.task.enable", havingValue = "true", matchIfMissing = true)
 public class VideoTaskScheduler {
     @Resource
     private TaskConfigService taskConfigService;
@@ -146,7 +146,7 @@ public class VideoTaskScheduler {
         videoDownloadTaskService.createTasks(tasks);
     }
 
-    @Scheduled(fixedDelay = 900000)
+    @Scheduled(fixedDelay = 3600000)
     private void downloadVideos(){
         List<VideoDownloadTask> notCompletedTask = videoDownloadTaskService.getNotCompletedTask(5);
         notCompletedTask.forEach(task -> {
@@ -183,9 +183,6 @@ public class VideoTaskScheduler {
                     videoService.updateVideoPath(task.getVideoCode(), filePath);
                 }
             });
-        }catch (HanimeApiException e){
-            videoDownloadTaskService.cancelTask(task);
-            log.warn("下载视频 {} 取消", task.getVideoCode(), e);
         }catch (Exception e) {
             videoDownloadTaskService.failTask(task);
             log.warn("下载视频 {} 失败", task.getVideoCode(), e);
