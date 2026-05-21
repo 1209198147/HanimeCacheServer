@@ -11,20 +11,20 @@ import com.shikou.model.entities.SearchParams;
 import com.shikou.model.entities.VideoInfo;
 import com.shikou.model.entities.pages.SearchPage;
 import com.shikou.model.entities.results.VideosResult;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+/**
+ * 视频任务调度器 —— 负责视频扫描与任务创建。
+ * <p>下载调度和任务生命周期管理已移交至 {@link TaskEngine}。
+ */
 @Slf4j
 @Component
 @ConditionalOnProperty(name = "video.task.enable", havingValue = "true", matchIfMissing = true)
@@ -37,8 +37,6 @@ public class VideoTaskScheduler {
     private VideoDownloadTaskService videoDownloadTaskService;
     @Resource
     private HanimeApiClient hanimeApiClient;
-
-    private final ExecutorService executorService = Executors.newFixedThreadPool(16);
 
     /** 搜索请求间隔（毫秒），避免触发429限流 */
     private static final long SEARCH_INTERVAL_MS = 1500;
@@ -124,78 +122,16 @@ public class VideoTaskScheduler {
      */
     private void addTasksFromVideoCodes(List<String> videoCodes){
         List<VideoDownloadTask> tasks = new ArrayList<>();
-        List<Video> videos = new ArrayList<>();
 
         String qualityConfig = taskConfigService.getQuality();
         log.info("开始创建任务，质量配置: {}，待处理视频数: {}", qualityConfig, videoCodes.size());
 
         for (String videoCode : videoCodes) {
-            // 视频
-            Video video = new Video();
-            video.setVideoCode(videoCode);
-            video.setQuality(qualityConfig);
-            videos.add(video);
-
             VideoDownloadTask task = new VideoDownloadTask();
             task.setVideoCode(videoCode);
             task.setQuality(qualityConfig);
             tasks.add(task);
         }
-
-        videoService.saveVideos(videos);
         videoDownloadTaskService.createTasks(tasks);
-    }
-
-    @Scheduled(fixedDelay = 3600000)
-    private void downloadVideos(){
-        List<VideoDownloadTask> notCompletedTask = videoDownloadTaskService.getNotCompletedTask(5);
-        notCompletedTask.forEach(task -> {
-            executorService.submit(() -> {
-                downloadVideo(task);
-            });
-        });
-    }
-
-    private void downloadVideo(VideoDownloadTask task){
-        videoDownloadTaskService.processTask(task);
-        String videoStorePath = taskConfigService.getVideoStorePath();
-        File dir = new File(videoStorePath + task.getVideoCode());
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-        log.info("下载视频 {}", task.getVideoCode());
-
-        String fileName = task.getVideoCode() + "_" + task.getQuality() + ".mp4";
-        // 相当于系统的路径
-        String filePath = task.getVideoCode() + File.separator + fileName;
-        // 绝对路径
-        String path = videoStorePath + filePath;
-        File file = new File(path);
-        try {
-            String quality = task.getQuality();
-            if(quality == null){
-                quality = taskConfigService.getQuality();
-            }
-            hanimeApiClient.download(task.getVideoCode(), quality, file, (long downloaded, long total) -> {
-                if(downloaded >= total){
-                    log.info("下载完成 {}", task.getVideoCode());
-                    videoDownloadTaskService.completeTask(task);
-                    videoService.updateVideoPath(task.getVideoCode(), filePath);
-                }
-            });
-        }catch (Exception e) {
-            videoDownloadTaskService.failTask(task);
-            log.warn("下载视频 {} 失败", task.getVideoCode(), e);
-        }
-    }
-
-    @Scheduled(fixedDelay = 60000)
-    private void recoverTask() {
-        List<VideoDownloadTask> recoverTask = videoDownloadTaskService.getRecoverTask();
-        recoverTask.forEach(task -> {
-            executorService.submit(() -> {
-                downloadVideo(task);
-            });
-        });
     }
 }

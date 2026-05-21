@@ -19,7 +19,11 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMapper, VideoDownloadTask> {
-    private final Set<Integer> NOT_COMPLETED_TASK_STATUS = Set.of(TaskStatus.PENDING.getCode(), TaskStatus.FAILED.getCode());
+    private final Set<Integer> NOT_COMPLETED_TASK_STATUS = Set.of(
+            TaskStatus.PENDING.getCode(),
+            TaskStatus.FAILED.getCode(),
+            TaskStatus.PAUSED.getCode()
+    );
 
     public void createTask(VideoDownloadTask task){
         checkTask(task);
@@ -78,8 +82,8 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
         AssertUtils.nonNull(task, ErrorCode.TASK_NOT_FOUND, "任务不存在");
 
         TaskStatus taskStatus = TaskStatus.valueOf(task.getStatus());
-        AssertUtils.isTrue(Set.of(TaskStatus.COMPLETED, TaskStatus.CANCELLED)
-                        .contains(taskStatus.getCode()),
+        AssertUtils.isTrue(Set.of(TaskStatus.COMPLETED, TaskStatus.CANCELLED, TaskStatus.PAUSED)
+                        .contains(taskStatus),
                 "当前任务无法处理 id:" + id + " 状态:" + taskStatus.getMessage());
         task.setStatus(TaskStatus.PROCESSING.getCode());
         boolean result = this.updateById(task);
@@ -129,7 +133,7 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
 
         TaskStatus taskStatus = TaskStatus.valueOf(task.getStatus());
         AssertUtils.isTrue(Set.of(TaskStatus.FAILED, TaskStatus.COMPLETED, TaskStatus.PENDING, TaskStatus.CANCELLED)
-                        .contains(taskStatus.getCode()),
+                        .contains(taskStatus),
                 "当前任务无法失败 id:" + id + " 状态:" + taskStatus.getMessage());
         task.setStatus(TaskStatus.FAILED.getCode());
         boolean result = this.updateById(task);
@@ -154,7 +158,7 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
 
         TaskStatus taskStatus = TaskStatus.valueOf(task.getStatus());
         AssertUtils.isTrue(Set.of(TaskStatus.CANCELLED, TaskStatus.COMPLETED)
-                        .contains(taskStatus.getCode()),
+                        .contains(taskStatus),
                 "当前任务无法取消 id:" + id + " 状态:" + taskStatus.getMessage());
         task.setStatus(TaskStatus.CANCELLED.getCode());
         boolean result = this.updateById(task);
@@ -181,17 +185,27 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
     }
 
     /**
-     * 获取任务统计信息（各状态数量）
+     * 获取任务统计信息（各状态数量），使用 SQL 聚合避免全量加载
      */
     public Map<String, Long> getStats() {
-        List<VideoDownloadTask> all = this.list();
-        long total = all.size();
-        Map<Integer, Long> statusCount = all.stream()
-                .collect(Collectors.groupingBy(VideoDownloadTask::getStatus, Collectors.counting()));
+        List<Map<String, Object>> rows = this.getBaseMapper().countByStatus();
         Map<String, Long> stats = new LinkedHashMap<>();
+        long total = 0;
+        for (Map<String, Object> row : rows) {
+            int status = ((Number) row.get("status")).intValue();
+            long count = ((Number) row.get("cnt")).longValue();
+            total += count;
+            try {
+                TaskStatus ts = TaskStatus.valueOf(status);
+                stats.put(ts.getMessage().toLowerCase(), count);
+            } catch (IllegalArgumentException e) {
+                stats.put("unknown_" + status, count);
+            }
+        }
         stats.put("total", total);
+        // 确保所有已知状态都有值
         for (TaskStatus ts : TaskStatus.values()) {
-            stats.put(ts.getMessage().toLowerCase(), statusCount.getOrDefault(ts.getCode(), 0L));
+            stats.putIfAbsent(ts.getMessage().toLowerCase(), 0L);
         }
         return stats;
     }
@@ -211,5 +225,70 @@ public class VideoDownloadTaskService extends ServiceImpl<VideoDownloadTaskMappe
         task.setStatus(TaskStatus.PENDING.getCode());
         this.updateById(task);
         log.info("任务重试 id:{} videoCode:{}", taskId, task.getVideoCode());
+    }
+
+    // ==================== 新增方法 ====================
+
+    /**
+     * 更新单个任务状态
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateTaskStatus(Integer taskId, Integer status) {
+        VideoDownloadTask task = this.getById(taskId);
+        if (task != null) {
+            task.setStatus(status);
+            this.updateById(task);
+        }
+    }
+
+    /**
+     * 批量更新指定状态的任务为目标状态
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public int updateStatusByStatus(Integer targetStatus, Integer sourceStatus) {
+        return this.getBaseMapper().updateStatusByStatus(targetStatus, sourceStatus);
+    }
+
+    /**
+     * 批量更新指定状态列表的任务为目标状态
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public int updateStatusByStatusList(Integer targetStatus, List<Integer> sourceStatusList) {
+        return this.getBaseMapper().updateStatusByStatusList(targetStatus, sourceStatusList);
+    }
+
+    /**
+     * 更新下载进度
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateProgress(Integer taskId, long currentBytes, long totalBytes) {
+        VideoDownloadTask task = this.getById(taskId);
+        if (task != null) {
+            task.setCurrentBytes(currentBytes);
+            task.setTotalBytes(totalBytes);
+            this.updateById(task);
+        }
+    }
+
+    /**
+     * 将任务标记为失败并记录错误信息
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void failTaskWithMessage(VideoDownloadTask videoDownloadTask, String errorMessage) {
+        Integer id = videoDownloadTask.getId();
+        VideoDownloadTask task = this.getById(id);
+        if (task == null) {
+            log.warn("failTaskWithMessage: 任务不存在 id={}", id);
+            return;
+        }
+        TaskStatus taskStatus = TaskStatus.valueOf(task.getStatus());
+        if (Set.of(TaskStatus.COMPLETED, TaskStatus.CANCELLED).contains(taskStatus)) {
+            return;
+        }
+        task.setStatus(TaskStatus.FAILED.getCode());
+        task.setErrorMessage(errorMessage != null && errorMessage.length() > 500
+                ? errorMessage.substring(0, 500) : errorMessage);
+        this.updateById(task);
+        log.info("任务失败 id:{} videoCode:{} error:{}", id, task.getVideoCode(), errorMessage);
     }
 }

@@ -11,7 +11,8 @@ public enum ErrorCode {
     NOT_FOUND(404, "Not Found"),
     FAIL(500, "Fail"),
     INTERNAL_SERVER_ERROR(501, "Internal Server Error"),
-    TASK_NOT_FOUND(604, "Task Not Found");
+    TASK_NOT_FOUND(604, "Task Not Found"),
+    TASK_ENGINE_STOPPED(605, "Task Engine Stopped");
 
     ErrorCode(int code, String message) {
         this.code = code;

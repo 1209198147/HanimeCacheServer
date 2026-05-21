@@ -87,8 +87,9 @@ public class VideoService extends ServiceImpl<VideoMapper, Video> {
                 .list();
     }
 
-    public boolean updateVideoPath(String videoCode, String path){
+    public boolean updateVideo(String videoCode, String quality, String path){
         return this.lambdaUpdate().eq(Video::getVideoCode, videoCode)
+                .set(Video::getQuality, quality)
                 .set(Video::getPath, path)
                 .update();
     }

@@ -8,7 +8,8 @@ public enum TaskStatus {
     PROCESSING(1, "Processing"),
     COMPLETED(2, "Completed"),
     FAILED(3, "Failed"),
-    CANCELLED(4, "Cancelled");
+    CANCELLED(4, "Cancelled"),
+    PAUSED(5, "Paused");
 
     private final int code;
     private final String message;

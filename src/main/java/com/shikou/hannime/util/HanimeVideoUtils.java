@@ -1,11 +1,15 @@
 package com.shikou.hannime.util;
 
 
+import com.shikou.model.entities.DownloadInfo;
+import com.shikou.model.entities.DownloadItem;
 import com.shikou.model.entities.HanimeVideo;
 import com.shikou.model.entities.VideoQuality;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class HanimeVideoUtils {
 
@@ -16,12 +20,19 @@ public class HanimeVideoUtils {
 
     /**
      * 根据质量配置解析视频画质，直接从视频自身的videoUrls中按分辨率数值选取
-     * @param videoDetail 视频详情
+     * @param downloadInfo 下载信息
      * @param qualityConfig 质量配置: "480p"=指定画质, "highest"=最高画质, "lowest"=最低画质
      * @return 匹配的VideoQuality，未找到返回null
      */
-    public static VideoQuality resolveQuality(HanimeVideo videoDetail, String qualityConfig) {
-        Map<String, VideoQuality> videoUrls = videoDetail.getVideoUrls();
+    public static VideoQuality resolveQuality(DownloadInfo downloadInfo, String qualityConfig) {
+        Map<String, VideoQuality> videoUrls = downloadInfo.getDownloadItems().stream()
+                .collect(Collectors.toMap(DownloadItem::getQuality, item -> {
+                    VideoQuality quality = new VideoQuality();
+                    quality.setQuality(item.getQuality());
+                    quality.setSuffix(item.getItemType());
+                    quality.setUrl(item.getDownloadUrl());
+                    return quality;
+                }));
         if (videoUrls.isEmpty()) {
             return null;
         }
