@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS video (
 
 -- 为video_code字段创建索引
 CREATE INDEX IF NOT EXISTS idx_video_video_code ON video(video_code);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_video_video_code_quality ON video(video_code, quality);
 
 -- 创建video_download_task表
 CREATE TABLE IF NOT EXISTS video_download_task (
@@ -22,11 +23,8 @@ CREATE TABLE IF NOT EXISTS video_download_task (
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 为video_download_task表的video_code字段创建索引
-CREATE INDEX IF NOT EXISTS idx_video_download_task_video_code ON video_download_task(video_code);
-
--- 为status字段创建索引（加速状态筛选查询）
-CREATE INDEX IF NOT EXISTS idx_video_download_task_status ON video_download_task(status);
+-- 为video_download_task表的video_code和quality字段创建索引
+CREATE INDEX IF NOT EXISTS idx_video_download_task_video_code_quality ON video_download_task(video_code, quality);
 
 -- 核心调度索引：按状态 + 创建时间排序，取最早一批 PENDING 任务
 CREATE INDEX IF NOT EXISTS idx_task_status_create_time ON video_download_task(status, create_time);
